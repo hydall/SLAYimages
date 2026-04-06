@@ -1260,6 +1260,7 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
     const referenceDataUrls = [];
     const refLabels = [];
     const refNames = []; // parallel array with display names
+    const swS = SillyTavern.getContext().extensionSettings.slay_wardrobe || {};
 
     // ── Gemini/nano-banana: base64 refs with labels ──
     if (settings.apiType === 'gemini' || isGeminiModel(settings.model)) {
@@ -1278,7 +1279,6 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
             if (userAvatar) { referenceImages.push(userAvatar); refLabels.push('user_face'); refNames.push(userDisplayName); }
         }
         // 3. Wardrobe outfit images (only if enabled)
-        const swS = SillyTavern.getContext().extensionSettings.slay_wardrobe || {};
         if (swS.sendOutfitImage !== false && window.slayWardrobe?.isReady()) {
             const botB64 = await window.slayWardrobe.getActiveOutfitBase64('bot');
             const userB64 = await window.slayWardrobe.getActiveOutfitBase64('user');
@@ -1346,8 +1346,7 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
 
     // ── OpenAI: wardrobe + NPC refs ──
     if (settings.apiType !== 'gemini' && !isGeminiModel(settings.model) && settings.apiType !== 'naistera') {
-        const swS2 = SillyTavern.getContext().extensionSettings.slay_wardrobe || {};
-        if (swS2.sendOutfitImage !== false && window.slayWardrobe?.isReady()) {
+        if (swS.sendOutfitImage !== false && window.slayWardrobe?.isReady()) {
             const botB64 = await window.slayWardrobe.getActiveOutfitBase64('bot');
             const userB64 = await window.slayWardrobe.getActiveOutfitBase64('user');
             if (botB64) referenceImages.push(botB64);
@@ -1366,8 +1365,7 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
         && shouldTriggerNaisteraVideoForMessage(options.messageId, settings.naisteraVideoEveryN);
 
     // ── Inject wardrobe outfit descriptions into prompt (only if enabled) ──
-    const swSDesc = SillyTavern.getContext().extensionSettings.slay_wardrobe || {};
-    if (swSDesc.sendOutfitDescription !== false && window.slayWardrobe?.isReady()) {
+    if (swS.sendOutfitDescription !== false && window.slayWardrobe?.isReady()) {
         const botData = window.slayWardrobe.getActiveOutfitData('bot');
         const userData = window.slayWardrobe.getActiveOutfitData('user');
         const wardrobeParts = [];

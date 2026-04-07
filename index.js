@@ -1944,23 +1944,22 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
     const referenceImages = [];
     const referenceDataUrls = [];
     const refLabels = [];
-    const refNames = []; // parallel array with display names
+    const refNames = [];
     const swS = SillyTavern.getContext().extensionSettings.slay_wardrobe || {};
+
+    // ── Determine which characters are mentioned in the prompt (used for refs AND descriptions) ──
+    const refs = getCurrentCharacterRefs();
+    const charDisplayName = refs.charRef?.name || getActiveCharacterName() || 'Character';
+    const userDisplayName = refs.userRef?.name || 'User';
+    const lowerPrompt = prompt.toLowerCase();
+    const charNameWords = charDisplayName.split(/\s+/).filter(w => w.length > 2);
+    const userNameWords = userDisplayName.split(/\s+/).filter(w => w.length > 2);
+    const charInPrompt = charNameWords.length > 0 && charNameWords.some(w => lowerPrompt.includes(w.toLowerCase()));
+    const userInPrompt = userNameWords.length > 0 && userNameWords.some(w => lowerPrompt.includes(w.toLowerCase()));
+    iigLog('INFO', `Prompt mentions: char "${charDisplayName}"=${charInPrompt}, user "${userDisplayName}"=${userInPrompt}`);
 
     // ── Gemini/nano-banana: base64 refs with labels ──
     if (settings.apiType === 'gemini' || isGeminiModel(settings.model)) {
-        const refs = getCurrentCharacterRefs();
-        const charDisplayName = refs.charRef?.name || getActiveCharacterName() || 'Character';
-        const userDisplayName = refs.userRef?.name || 'User';
-
-        // Check which characters are mentioned in the prompt
-        const lowerPrompt = prompt.toLowerCase();
-        const charNameWords = charDisplayName.split(/\s+/).filter(w => w.length > 2);
-        const userNameWords = userDisplayName.split(/\s+/).filter(w => w.length > 2);
-        const charInPrompt = charNameWords.length > 0 && charNameWords.some(w => lowerPrompt.includes(w.toLowerCase()));
-        const userInPrompt = userNameWords.length > 0 && userNameWords.some(w => lowerPrompt.includes(w.toLowerCase()));
-
-        iigLog('INFO', `Prompt mentions: char "${charDisplayName}"=${charInPrompt}, user "${userDisplayName}"=${userInPrompt}`);
 
         const getB64 = async (ref) => {
             if (ref?.imagePath) { const b64 = await loadRefImageAsBase64(ref.imagePath); if (b64) return b64; }
@@ -2076,8 +2075,8 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
         iigLog('INFO', `Wardrobe bot desc (${botDesc.length} chars): ${botDesc.substring(0, 150)}`);
         iigLog('INFO', `Wardrobe user desc (${userDesc.length} chars): ${userDesc.substring(0, 150)}`);
         const wardrobeParts = [];
-        if (botDesc) wardrobeParts.push(`[Clothing reference only, avoid copying the pose] [Character's current outfit: ${botDesc}]`);
-        if (userDesc) wardrobeParts.push(`[Clothing reference only, avoid copying the pose] [User's current outfit: ${userDesc}]`);
+        if (botDesc && charInPrompt) wardrobeParts.push(`[Clothing reference only, avoid copying the pose] [Character's current outfit: ${botDesc}]`);
+        if (userDesc && userInPrompt) wardrobeParts.push(`[Clothing reference only, avoid copying the pose] [User's current outfit: ${userDesc}]`);
         if (wardrobeParts.length > 0) {
             prompt = `${wardrobeParts.join(' ')}\n${prompt}`;
             iigLog('INFO', `Wardrobe v4 descriptions injected: ${wardrobeParts.join(' | ').substring(0, 200)}`);

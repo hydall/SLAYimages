@@ -338,10 +338,10 @@
             .sw-current-slot-label { font-size:10px; color:#777; text-align:center; max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
             .sw-current-desc { font-size:11px; color:#999; margin-top:6px; line-height:1.4; max-height:60px; overflow-y:auto; }
 
-            .sw-upload-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200000; display:flex; align-items:center; justify-content:center; overflow-y:auto; padding:16px; }
+            .sw-upload-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200000; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px; padding-top:10vh; }
             @media (max-width:600px) { .sw-upload-modal-overlay { align-items:flex-start; padding-top:40px; } .sw-upload-modal { max-height:calc(100dvh - 60px); overflow-y:auto; } }
             @media (max-width:600px) { .sw-edit-modal-overlay { align-items:flex-start; padding:16px; padding-top:40px; } .sw-edit-modal { max-height:calc(100dvh - 60px); overflow-y:auto; } }
-            .sw-upload-modal { background:#2a2a2e; border-radius:14px; padding:20px; width:360px; max-width:90vw; color:#ddd; box-shadow:0 8px 32px rgba(0,0,0,0.5); }
+            .sw-upload-modal { background:#2a2a2e; border-radius:14px; padding:20px; width:360px; max-width:90vw; max-height:80vh; overflow-y:auto; color:#ddd; box-shadow:0 8px 32px rgba(0,0,0,0.5); flex-shrink:0; }
             .sw-upload-modal h3 { margin:0 0 14px; font-size:15px; color:#f0a0c0; }
             .sw-upload-modal label { display:block; font-size:12px; color:#aaa; margin:10px 0 4px; }
             .sw-upload-modal input[type="text"] { width:100%; padding:7px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.2); color:#eee; font-size:13px; box-sizing:border-box; }
@@ -356,8 +356,8 @@
             .sw-upload-btn-save { background:rgba(219,112,147,0.3); color:#f0a0c0; }
             .sw-upload-btn-save:hover { background:rgba(219,112,147,0.45); }
 
-            .sw-edit-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200000; display:flex; align-items:center; justify-content:center; }
-            .sw-edit-modal { background:#2a2a2e; border-radius:14px; padding:20px; width:380px; max-width:90vw; color:#ddd; box-shadow:0 8px 32px rgba(0,0,0,0.5); }
+            .sw-edit-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200000; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px; padding-top:10vh; }
+            .sw-edit-modal { background:#2a2a2e; border-radius:14px; padding:20px; width:380px; max-width:90vw; max-height:80vh; overflow-y:auto; color:#ddd; box-shadow:0 8px 32px rgba(0,0,0,0.5); flex-shrink:0; }
             .sw-edit-modal h3 { margin:0 0 14px; font-size:15px; color:#f0a0c0; }
             .sw-edit-modal label { display:block; font-size:12px; color:#aaa; margin:10px 0 4px; }
             .sw-edit-modal input[type="text"], .sw-edit-modal textarea { width:100%; padding:7px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.2); color:#eee; font-size:13px; box-sizing:border-box; }
@@ -696,10 +696,9 @@
             swHideGarderob();
             const ov = document.createElement('div');
             ov.className = 'sw-desc-input-overlay';
-            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200001;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;animation:sw-fade-in 0.2s ease-out;';
-            if (window.innerWidth <= 600) ov.style.alignItems = 'flex-start';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200001;display:flex;align-items:flex-start;justify-content:center;padding:20px;padding-top:10vh;overflow-y:auto;-webkit-overflow-scrolling:touch;';
             const m = document.createElement('div');
-            m.style.cssText = 'background:rgba(30,30,40,0.98);border-radius:14px;padding:20px;width:420px;max-width:90vw;color:#ddd;box-shadow:0 12px 48px rgba(0,0,0,0.5);border:1px solid rgba(244,114,182,0.15);animation:sw-modal-in 0.25s cubic-bezier(0.34,1.56,0.64,1);';
+            m.style.cssText = 'background:rgba(30,30,40,0.98);border-radius:14px;padding:20px;width:420px;max-width:90vw;max-height:80vh;overflow-y:auto;color:#ddd;box-shadow:0 12px 48px rgba(0,0,0,0.5);border:1px solid rgba(244,114,182,0.15);flex-shrink:0;';
             m.innerHTML = `
                 <div style="font-size:14px;font-weight:600;color:#f472b6;margin-bottom:12px;">${esc(title)}</div>
                 <textarea id="sw-descinput-text" style="width:100%;min-height:100px;max-height:200px;padding:10px;border-radius:8px;border:1px solid rgba(244,114,182,0.2);background:rgba(0,0,0,0.3);color:#eee;font-size:13px;line-height:1.5;resize:vertical;box-sizing:border-box;font-family:inherit;">${esc(value || '')}</textarea>

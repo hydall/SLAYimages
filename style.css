@@ -1029,18 +1029,18 @@
 .sw-desc-overlay {
     position: fixed; inset: 0;
     background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    z-index: 100000;
-    display: flex; align-items: center; justify-content: center;
-    animation: sw-fade-in 0.2s ease-out;
-    padding: 16px;
+    z-index: 200000;
+    display: flex; align-items: flex-start; justify-content: center;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 20px; padding-top: 10vh;
 }
 
 .sw-desc-modal {
     width: min(420px, 100%);
+    max-height: 80vh;
     border-radius: 16px;
-    overflow: hidden;
+    overflow-y: auto;
+    flex-shrink: 0;
     background: rgba(20, 20, 30, 0.98);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);

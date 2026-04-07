@@ -250,7 +250,7 @@
             const endpoint = (swS.describeEndpoint || iigSettings.endpoint || '').replace(/\/$/, '');
             const apiKey = swS.describeKey || iigSettings.apiKey || '';
             const modelSelect = document.getElementById('slay_sw_describe_model');
-            const model = modelSelect?.value || swS.describeModel || 'gemini-2.0-flash';
+            const model = modelSelect?.value || swS.describeModel || iigSettings.model || 'gemini-2.0-flash';
             if (!endpoint || !apiKey) {
                 toastr.warning('Настройте API для описания в секции Гардероб', 'Гардероб', { timeOut: 5000 });
                 return null;

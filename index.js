@@ -1,7 +1,7 @@
 /**
  * Slay Inline Image Generation + Wardrobe
  * Merged extension: notsosillynotsoimages (NPC refs) + sillyimages (wardrobe)
- * v3.0.0 by aceeenvw + 0xl0cal + IVORY
+ * v3.0.0 by aceeenvw + 0xl0cal + Wewwa
  */
 
 /* ╔═══════════════════════════════════════════════════════════════╗
@@ -1975,7 +1975,7 @@ function createSettingsUI() {
 
                 <div id="slay_manual_save" class="menu_button" style="width:100%;text-align:center;margin-bottom:6px;background:#2a6a2a;"><i class="fa-solid fa-floppy-disk"></i> Сохранить настройки</div>
                 <p id="slay_save_status" class="hint" style="text-align:center;font-size:0.85em;min-height:1.2em;"></p>
-                <p class="hint" style="text-align:center;opacity:0.5;margin-top:4px;">v3.0.0 by <a href="https://github.com/aceeenvw/notsosillynotsoimages" target="_blank" style="color:inherit;text-decoration:underline;">aceeenvw</a> + <a href="https://github.com/0xl0cal/sillyimages" target="_blank" style="color:inherit;text-decoration:underline;">0xl0cal</a> + IVORY</p>
+                <p class="hint" style="text-align:center;opacity:0.5;margin-top:4px;">v3.0.0 by <a href="https://github.com/aceeenvw/notsosillynotsoimages" target="_blank" style="color:inherit;text-decoration:underline;">aceeenvw</a> + <a href="https://github.com/0xl0cal/sillyimages" target="_blank" style="color:inherit;text-decoration:underline;">0xl0cal</a> + Wewwa</p>
                 <p id="slay_session_stats" class="hint" style="text-align:center;opacity:0.35;margin-top:2px;font-size:0.8em;"></p>
             </div>
         </div>
@@ -2280,7 +2280,11 @@ function updateHeaderStatusDot() {
     }
     if (context.extensionSettings.inline_image_gen && !context.extensionSettings.slay_image_gen) {
         context.extensionSettings.slay_image_gen = structuredClone(context.extensionSettings.inline_image_gen);
-        iigLog('INFO', 'Migrated inline_image_gen -> slay_image_gen');
+        context.extensionSettings.slay_image_gen.sendCharAvatar = false;
+        context.extensionSettings.slay_image_gen.sendUserAvatar = false;
+        context.extensionSettings.slay_image_gen.naisteraSendCharAvatar = false;
+        context.extensionSettings.slay_image_gen.naisteraSendUserAvatar = false;
+        iigLog('INFO', 'Migrated inline_image_gen -> slay_image_gen (avatar sending disabled)');
     }
 
     getSettings();

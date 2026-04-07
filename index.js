@@ -595,6 +595,7 @@
     // Custom modal for outfit description choice
     function swShowDescriptionModal(outfitName) {
         return new Promise((resolve) => {
+            swHideGarderob();
             const ov = document.createElement('div');
             ov.className = 'sw-desc-overlay';
             const m = document.createElement('div');
@@ -629,9 +630,13 @@
     }
 
     // ── Upload modal (custom, replaces browser prompts) ──
+    function swHideGarderob() { const el = document.getElementById('sw-modal-overlay'); if (el) el.style.display = 'none'; }
+    function swShowGarderob() { const el = document.getElementById('sw-modal-overlay'); if (el) el.style.display = ''; }
+
     function swShowUploadModal(defaultName) {
         return new Promise((resolve) => {
             swInjectV4Styles();
+            swHideGarderob();
             const ov = document.createElement('div');
             ov.className = 'sw-upload-modal-overlay';
             const m = document.createElement('div');
@@ -665,7 +670,7 @@
             const catSel = m.querySelector('#sw-upl-cat');
             if (catSel) catSel.value = swCatTab;
 
-            const close = (val) => { ov.remove(); resolve(val); };
+            const close = (val) => { ov.remove(); swShowGarderob(); resolve(val); };
             m.querySelector('#sw-upl-cancel').addEventListener('click', () => close(null));
             ov.addEventListener('click', (e) => { if (e.target === ov) close(null); });
             m.querySelector('#sw-upl-save').addEventListener('click', () => {
@@ -688,6 +693,7 @@
     function swShowDescInput(title, value) {
         return new Promise((resolve) => {
             swInjectV4Styles();
+            swHideGarderob();
             const ov = document.createElement('div');
             ov.className = 'sw-desc-input-overlay';
             ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200001;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;animation:sw-fade-in 0.2s ease-out;';
@@ -711,7 +717,7 @@
             textarea.setSelectionRange(textarea.value.length, textarea.value.length);
             textarea.addEventListener('input', () => { counter.textContent = `${textarea.value.length} символов`; });
 
-            const close = (val) => { ov.remove(); resolve(val); };
+            const close = (val) => { ov.remove(); swShowGarderob(); resolve(val); };
             m.querySelector('#sw-descinput-cancel').addEventListener('click', () => close(null));
             m.querySelector('#sw-descinput-save').addEventListener('click', () => close(textarea.value.trim()));
             ov.addEventListener('click', (e) => { if (e.target === ov) close(null); });
@@ -725,6 +731,7 @@
     function swShowEditModal(item) {
         return new Promise((resolve) => {
             swInjectV4Styles();
+            swHideGarderob();
             const ov = document.createElement('div');
             ov.className = 'sw-edit-modal-overlay';
             const m = document.createElement('div');
@@ -757,7 +764,7 @@
             ov.appendChild(m);
             document.body.appendChild(ov);
 
-            const close = (val) => { ov.remove(); resolve(val); };
+            const close = (val) => { ov.remove(); swShowGarderob(); resolve(val); };
             m.querySelector('#sw-edit-cancel').addEventListener('click', () => close(null));
             ov.addEventListener('click', (e) => { if (e.target === ov) close(null); });
             m.querySelector('#sw-edit-save').addEventListener('click', () => {

@@ -17,27 +17,30 @@ Supports **OpenAI-compatible**, **Gemini / Nano-Banana**, and **Naistera / Grok*
 - **Inline image generation** — LLM generates `<img>` tags, extension auto-generates images
 - **NPC references** — upload reference photos for char, user, and up to 4 NPCs
 - **Per-character refs** — each bot remembers its own ref images
-- **Smart ref sending** — refs only sent for characters mentioned in the prompt
-- **Lightbox** — click any generated image to view full-size
-- **iOS support** — XHR fallback with extended timeouts
+- **Smart ref sending** — refs and outfit descriptions only sent for characters mentioned in the prompt
+- **Lightbox** — click any generated image to view full-size (tap to close on mobile)
+- **iOS/Android support** — XHR fallback, safe-area-inset, mobile-optimized modals
+- **Regenerate button** — retry failed or old images from message menu
 
 ### Wardrobe v4 (Sims-style)
 - **6 categories** — Full outfit, Top, Bottom, Shoes, Accessories, Hair
-- **2 modes** — Full outfit or mix-and-match parts (separate for bot and user)
+- **2 modes** — Full outfit or mix-and-match parts (separate modes for bot and user)
 - **Tags** — Street, Home, Evening, Sleep, Sport, Beach, Other
-- **For who filter** — All, Bot, User
-- **Global wardrobe** — shared across all characters
-- **Auto outfit description** — AI describes uploaded clothing (Direct API or Chat API)
+- **For who filter** — All, Bot, User (auto-switches with bot/user tab)
+- **Global wardrobe** — shared across all characters, active outfits per-character
+- **Auto outfit description** — AI describes uploaded clothing via Direct API or Chat API
+- **Separate describe API** — dedicated endpoint/key/model for outfit descriptions (choose Gemini or OpenAI format)
 - **Hair prompt** — describes hairstyle without mentioning hair color
 - **Description styles** — Detailed (costume designer) or Simple
 - **Outfit injection** — OUTFIT LOCK with depth=0 for reliable LLM compliance
-- **Separate controls** — send outfit image for bot/user independently
-- **🧪 Experimental collage** — merge up to 6 clothing parts into one ref image
+- **Separate image controls** — send outfit image for bot/user independently
+- **🧪 Experimental collage** — merge up to 6 clothing parts into one ref image (parts mode)
+- **Inline sub-forms** — upload, edit, description forms render inside wardrobe (no z-index issues on mobile)
 
 ### API Support
 - **OpenAI-compatible**, **Gemini / Nano-Banana**, **Naistera / Grok**
-- **Separate describe API** — dedicated endpoint/key/model for outfit descriptions
 - **Video generation** — Naistera video test mode
+- **Auto-migration** — imports settings from sillyimages/notsosillynotsoimages
 
 ---
 
@@ -90,16 +93,20 @@ Your LLM generates image tags in its responses:
 
 The extension intercepts these tags, sends the prompt + reference images to your image generation API, and replaces the placeholder with the generated image.
 
-### Reference Priority (Gemini)
-1. Character avatar face
-2. User avatar face
-3. Wardrobe bot outfit
-4. Wardrobe user outfit
-5. NPC char/user refs
-6. Matched NPC references (by name in prompt)
-7. Context images (previous generations)
+### What gets sent to the image API (Gemini)
 
-Max 5 reference images per request.
+Only for characters **mentioned by name** in the image prompt:
+
+1. **Face ref** from char/user slot
+2. **Wardrobe outfit image** (if enabled in settings)
+3. **NPC refs** matched by name in prompt
+4. **Context images** (previous generations, if enabled)
+
+Additionally:
+- **Outfit text description** injected into prompt (if enabled)
+- **OUTFIT LOCK** injected into chat context so LLM writes correct clothing
+
+Max 5 reference images per request. Characters not in the prompt = nothing sent for them.
 
 ---
 

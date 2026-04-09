@@ -37,6 +37,10 @@
     });
     const TAG_KEYS = Object.keys(TAGS);
 
+    const GENDERS = Object.freeze({ unisex: '⚥', female: '♀️', male: '♂️' });
+    const GENDER_KEYS = Object.keys(GENDERS);
+    const GENDER_COLORS = Object.freeze({ unisex: '#a855f7', female: '#f472b6', male: '#60a5fa' });
+
     // ── Defaults (v4 — global items, per-character active outfits) ──
     const swDefaults = Object.freeze({
         items: [],
@@ -368,7 +372,7 @@
     }
 
     // ── Modal state ──
-    let swOpen = false, swTab = 'bot', swCatTab = 'full', swTagFilter = null, swForWhoFilter = null;
+    let swOpen = false, swTab = 'bot', swCatTab = 'full', swTagFilter = null, swForWhoFilter = null, swGenderFilter = null;
 
     function swOpenModal() {
         swCloseModal();
@@ -483,7 +487,7 @@
             }
         }
 
-        // ── For who filter ──
+        // ── For who + gender filter (one row with divider) ──
         const forWhoWrap = document.getElementById('sw-forwho-filter');
         if (forWhoWrap) {
             const fwLabels = { '': 'Все', 'bot': '🤖 Бот', 'user': '👤 Юзер' };
@@ -492,21 +496,32 @@
                 const active = (swForWhoFilter || '') === key;
                 fwHtml += `<div class="sw-tag-chip ${active ? 'sw-tag-chip-active' : ''}" data-fw="${key}">${label}</div>`;
             }
+            // Divider + gender chips
+            fwHtml += `<div style="width:1px;background:rgba(255,255,255,0.1);margin:0 2px;flex-shrink:0;"></div>`;
+            for (const g of GENDER_KEYS) {
+                const active = (swGenderFilter || '') === g || (!swGenderFilter && g === 'unisex' && false);
+                const noFilter = !swGenderFilter && g === 'unisex';
+                fwHtml += `<div class="sw-tag-chip ${!swGenderFilter && g === GENDER_KEYS[0] ? '' : ''} ${swGenderFilter === g ? 'sw-tag-chip-active' : ''}" data-gender="${g}" style="${swGenderFilter === g ? 'border-color:' + GENDER_COLORS[g] + '40;color:' + GENDER_COLORS[g] + ';background:' + GENDER_COLORS[g] + '18;' : ''}">${GENDERS[g]}</div>`;
+            }
+            // "All genders" button
+            fwHtml = fwHtml.replace('</div><div style="width:1px', `</div><div class="sw-tag-chip ${!swGenderFilter ? 'sw-tag-chip-active' : ''}" data-gender="" style="font-size:10px;">Все</div><div style="width:1px`);
+
             forWhoWrap.innerHTML = fwHtml;
-            for (const chip of forWhoWrap.querySelectorAll('.sw-tag-chip')) {
-                chip.addEventListener('click', () => {
-                    swForWhoFilter = chip.dataset.fw || null;
-                    swRender();
-                });
+            for (const chip of forWhoWrap.querySelectorAll('.sw-tag-chip[data-fw]')) {
+                chip.addEventListener('click', () => { swForWhoFilter = chip.dataset.fw || null; swRender(); });
+            }
+            for (const chip of forWhoWrap.querySelectorAll('.sw-tag-chip[data-gender]')) {
+                chip.addEventListener('click', () => { swGenderFilter = chip.dataset.gender || null; swRender(); });
             }
         }
 
-        // ── Filter items by category + tag + forWho ──
+        // ── Filter items by category + tag + forWho + gender ──
         const allItems = swGetSettings().items;
         const filtered = allItems.filter(o => {
             if (o.category !== swCatTab) return false;
             if (swTagFilter && (!Array.isArray(o.tags) || !o.tags.includes(swTagFilter))) return false;
             if (swForWhoFilter && o.forWho && o.forWho !== 'all' && o.forWho !== swForWhoFilter) return false;
+            if (swGenderFilter && (o.gender || 'unisex') !== swGenderFilter) return false;
             return true;
         });
 
@@ -517,7 +532,7 @@
         for (const o of filtered) {
             const a = o.id === equippedId;
             h += `<div class="sw-outfit-card ${a ? 'sw-outfit-active' : ''}" data-id="${o.id}">
-                <div class="sw-outfit-img-wrap"><img src="${swGetOutfitSrc(o)}" alt="${esc(o.name)}" class="sw-outfit-img" loading="lazy">${a ? '<div class="sw-active-badge"><i class="fa-solid fa-check"></i></div>' : ''}</div>
+                <div class="sw-outfit-img-wrap"><img src="${swGetOutfitSrc(o)}" alt="${esc(o.name)}" class="sw-outfit-img" loading="lazy">${a ? '<div class="sw-active-badge"><i class="fa-solid fa-check"></i></div>' : ''}<div style="position:absolute;top:4px;left:4px;font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.5);color:${GENDER_COLORS[o.gender || 'unisex']};">${GENDERS[o.gender || 'unisex']}</div></div>
                 <div class="sw-outfit-footer"><span class="sw-outfit-name" title="${esc(o.description || o.name)}">${esc(o.name)}</span>
                     <div class="sw-outfit-btns">
                         <div class="sw-btn-activate" title="${a ? 'Снять' : 'Надеть'}"><i class="fa-solid ${a ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></div>
@@ -647,6 +662,8 @@
                     <select id="sw-upl-cat" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.2);color:#eee;font-size:13px;box-sizing:border-box;">${catOptions}</select>
                     <label style="display:block;font-size:12px;color:#aaa;margin:8px 0 4px;">Для кого</label>
                     <select id="sw-upl-forwho" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.2);color:#eee;font-size:13px;box-sizing:border-box;"><option value="all">Все</option><option value="bot" ${swTab === 'bot' ? 'selected' : ''}>Бот</option><option value="user" ${swTab === 'user' ? 'selected' : ''}>Юзер</option></select>
+                    <label style="display:block;font-size:12px;color:#aaa;margin:8px 0 4px;">Пол</label>
+                    <select id="sw-upl-gender" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.2);color:#eee;font-size:13px;box-sizing:border-box;"><option value="unisex">⚥ Унисекс</option><option value="female">♀️ Женское</option><option value="male">♂️ Мужское</option></select>
                     <label style="display:block;font-size:12px;color:#aaa;margin:8px 0 4px;">Теги</label>
                     <div id="sw-upl-tags" style="display:flex;flex-wrap:wrap;gap:6px;">${tagsHtml}</div>
                     <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
@@ -663,8 +680,9 @@
                 if (!name) { toastr.warning('Введите название', 'Гардероб'); return; }
                 const category = el.querySelector('#sw-upl-cat').value;
                 const forWho = el.querySelector('#sw-upl-forwho').value;
+                const gender = el.querySelector('#sw-upl-gender').value;
                 const tags = [...el.querySelectorAll('#sw-upl-tags input:checked')].map(c => c.value);
-                close({ name, category, forWho, tags });
+                close({ name, category, forWho, gender, tags });
             });
             setTimeout(() => el.querySelector('#sw-upl-name')?.focus(), 50);
         });
@@ -717,6 +735,8 @@
                     <select id="sw-edit-cat" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.2);color:#eee;font-size:13px;box-sizing:border-box;">${catOptions}</select>
                     <label style="display:block;font-size:12px;color:#aaa;margin:8px 0 4px;">Для кого</label>
                     <select id="sw-edit-forwho" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.2);color:#eee;font-size:13px;box-sizing:border-box;"><option value="all" ${(item.forWho || 'all') === 'all' ? 'selected' : ''}>Все</option><option value="bot" ${item.forWho === 'bot' ? 'selected' : ''}>Бот</option><option value="user" ${item.forWho === 'user' ? 'selected' : ''}>Юзер</option></select>
+                    <label style="display:block;font-size:12px;color:#aaa;margin:8px 0 4px;">Пол</label>
+                    <select id="sw-edit-gender" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.2);color:#eee;font-size:13px;box-sizing:border-box;"><option value="unisex" ${(item.gender || 'unisex') === 'unisex' ? 'selected' : ''}>⚥ Унисекс</option><option value="female" ${item.gender === 'female' ? 'selected' : ''}>♀️ Женское</option><option value="male" ${item.gender === 'male' ? 'selected' : ''}>♂️ Мужское</option></select>
                     <label style="display:block;font-size:12px;color:#aaa;margin:8px 0 4px;">Теги</label>
                     <div id="sw-edit-tags" style="display:flex;flex-wrap:wrap;gap:6px;">${tagsHtml}</div>
                     <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
@@ -733,8 +753,9 @@
                 const description = el.querySelector('#sw-edit-desc').value.trim();
                 const category = el.querySelector('#sw-edit-cat').value;
                 const forWho = el.querySelector('#sw-edit-forwho').value;
+                const gender = el.querySelector('#sw-edit-gender').value;
                 const tags = [...el.querySelectorAll('#sw-edit-tags input:checked')].map(c => c.value);
-                close({ name, description, category, forWho, tags });
+                close({ name, description, category, forWho, gender, tags });
             });
             setTimeout(() => m.querySelector('#sw-edit-name')?.focus(), 50);
         });
@@ -966,6 +987,7 @@
                     base64: '',
                     category: result.category,
                     forWho: result.forWho || 'all',
+                    gender: result.gender || 'unisex',
                     tags: result.tags,
                     addedAt: Date.now(),
                 });
@@ -986,6 +1008,7 @@
         o.description = result.description ?? o.description;
         o.category = result.category || o.category;
         o.forWho = result.forWho || 'all';
+        o.gender = result.gender || 'unisex';
         o.tags = result.tags || o.tags;
         swSave();
         swRender();

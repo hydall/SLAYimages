@@ -2160,6 +2160,50 @@ function createGeneratedMediaElement(result, tag) {
     return img;
 }
 
+// Replace an image src everywhere it's stored in a message object.
+// SillyTavern keeps src in multiple places (mes, display_text, extblocks, swipe_info, swipes),
+// and any one of them being stale will cause a regenerated image to revert on re-render.
+function replaceImageSrcEverywhere(message, oldSrc, newSrc) {
+    if (!message || !oldSrc || !newSrc || oldSrc === newSrc) return false;
+    let changed = false;
+    const rep = (str) => {
+        if (typeof str !== 'string' || !str.includes(oldSrc)) return str;
+        changed = true;
+        return str.split(oldSrc).join(newSrc);
+    };
+    if (typeof message.mes === 'string') message.mes = rep(message.mes);
+    if (message.extra) {
+        if (typeof message.extra.display_text === 'string') message.extra.display_text = rep(message.extra.display_text);
+        if (typeof message.extra.extblocks === 'string') message.extra.extblocks = rep(message.extra.extblocks);
+    }
+    if (Array.isArray(message.swipes) && Number.isInteger(message.swipe_id) && typeof message.swipes[message.swipe_id] === 'string') {
+        message.swipes[message.swipe_id] = rep(message.swipes[message.swipe_id]);
+    }
+    if (Array.isArray(message.swipe_info) && Number.isInteger(message.swipe_id) && message.swipe_info[message.swipe_id]) {
+        const si = message.swipe_info[message.swipe_id];
+        if (si.extra) {
+            if (typeof si.extra.display_text === 'string') si.extra.display_text = rep(si.extra.display_text);
+            if (typeof si.extra.extblocks === 'string') si.extra.extblocks = rep(si.extra.extblocks);
+        }
+    }
+    return changed;
+}
+
+// Find a currently-in-DOM <img> with the same data-iig-instruction as the given element.
+// Used after an await, when the original img may have been replaced by a re-render (swipe, edit).
+function findLiveImgByInstruction(detachedImg) {
+    if (!detachedImg) return null;
+    if (detachedImg.isConnected) return detachedImg;
+    const instr = detachedImg.getAttribute('data-iig-instruction');
+    if (!instr) return null;
+    for (const candidate of document.querySelectorAll('img[data-iig-instruction]')) {
+        if (candidate.isConnected && candidate.getAttribute('data-iig-instruction') === instr) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
 // Wrap a generated <img> (with data-iig-instruction) in a container and attach a top-left regen button.
 // Idempotent — safe to call multiple times on the same img. Works for newly-generated images AND
 // already-rendered ones (e.g. after page reload, chat swipe).
@@ -2206,36 +2250,57 @@ function attachRegenButton(imgEl) {
         const messageId = mesEl ? parseInt(mesEl.getAttribute('mesid'), 10) : undefined;
         const ctx = SillyTavern.getContext();
         const message = (Number.isInteger(messageId) && ctx?.chat) ? ctx.chat[messageId] : null;
-        const origSrc = imgEl.src;
+
+        // Capture original state. Use getAttribute('src') — the relative path as stored in
+        // message.mes / display_text / extblocks. imgEl.src would give us an absolute URL
+        // which won't match the relative one in the message text, so replaceAll would no-op.
+        let liveImg = imgEl;
+        const origSrcAttr = imgEl.getAttribute('src') || '';
         const origOpacity = imgEl.style.opacity;
         imgEl.style.opacity = '0.35';
 
+        let newImagePath = null;
+        let errorMsg = null;
         try {
             const result = await generateImageWithRetry(data.prompt, data.style, () => {}, {
                 aspectRatio: data.aspect_ratio, imageSize: data.image_size,
                 quality: data.quality, preset: data.preset, messageId,
             });
-            const imagePath = isGeneratedVideoResult(result)
+            newImagePath = isGeneratedVideoResult(result)
                 ? await saveNaisteraMediaToFile(result.dataUrl, 'video')
                 : await saveImageToFile(result);
-            imgEl.src = imagePath;
-            imgEl.style.opacity = origOpacity;
-            // Persist the new src in the message so it survives page reloads
-            if (message && typeof message.mes === 'string' && origSrc) {
-                const escapedOrig = origSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const updatedMes = message.mes.replace(new RegExp(escapedOrig, 'g'), imagePath);
-                if (updatedMes !== message.mes) {
-                    message.mes = updatedMes;
-                    ctx.saveChatDebounced?.();
-                }
-            }
-            toastr.success('Картинка перегенерирована', 'SLAY Images', { timeOut: 2000 });
         } catch (err) {
-            imgEl.src = origSrc;
-            imgEl.style.opacity = origOpacity;
-            iigLog('ERROR', `Regen failed: ${err.message}`);
-            toastr.error(`Перегенерация упала: ${err.message}`, 'SLAY Images');
+            errorMsg = err?.message || String(err);
+            iigLog('ERROR', `Regen failed: ${errorMsg}`);
+        }
+
+        // The img may have been replaced in DOM by a swipe/edit during the await.
+        // Always re-resolve to a live element before touching .src.
+        const resolved = findLiveImgByInstruction(liveImg);
+        if (resolved) liveImg = resolved;
+
+        try {
+            if (newImagePath) {
+                // Success path — apply new src and persist everywhere
+                liveImg.setAttribute('src', newImagePath);
+                liveImg.src = newImagePath;
+                if (message && origSrcAttr) {
+                    const replaced = replaceImageSrcEverywhere(message, origSrcAttr, newImagePath);
+                    if (replaced) ctx.saveChatDebounced?.();
+                    else iigLog('WARN', `Regen: could not find origSrc "${origSrcAttr.slice(0, 60)}" in message fields — src updated in DOM only, may revert on reload`);
+                }
+                toastr.success('Картинка перегенерирована', 'SLAY Images', { timeOut: 2000 });
+            } else {
+                // Error path — restore original src so the user doesn't get stuck on a broken frame
+                if (origSrcAttr && liveImg.getAttribute('src') !== origSrcAttr) {
+                    liveImg.setAttribute('src', origSrcAttr);
+                    liveImg.src = origSrcAttr;
+                }
+                toastr.error(`Перегенерация упала: ${errorMsg || 'неизвестная ошибка'}`, 'SLAY Images');
+            }
         } finally {
+            // Always restore opacity and button state, regardless of what happened above
+            liveImg.style.opacity = origOpacity;
             icon.className = origIconClass;
             btn.classList.remove('iig-regen-busy');
         }

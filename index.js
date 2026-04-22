@@ -399,7 +399,7 @@
     }
 
     // ── Modal state ──
-    let swOpen = false, swTab = 'bot', swCatTab = 'full', swTagFilter = null, swForWhoFilter = null, swGenderFilter = null;
+    let swOpen = false, swTab = 'bot', swCatTab = 'full', swTagFilter = null, swForWhoFilter = null, swGenderFilter = null, swFavFilter = false;
 
     function swOpenModal() {
         swCloseModal();
@@ -551,6 +551,10 @@
             // "All genders" button
             fwHtml = fwHtml.replace('</div><div style="width:1px', `</div><div class="sw-tag-chip ${!swGenderFilter ? 'sw-tag-chip-active' : ''}" data-gender="" style="font-size:10px;">Все</div><div style="width:1px`);
 
+            // Divider + favourites filter chip
+            fwHtml += `<div style="width:1px;background:rgba(255,255,255,0.1);margin:0 2px;flex-shrink:0;"></div>`;
+            fwHtml += `<div class="sw-tag-chip sw-fav-filter-chip ${swFavFilter ? 'sw-tag-chip-active' : ''}" data-fav-filter title="Показать только избранные"><i class="fa-solid fa-star" style="color:${swFavFilter ? '#fbbf24' : '#888'};"></i></div>`;
+
             forWhoWrap.innerHTML = fwHtml;
             for (const chip of forWhoWrap.querySelectorAll('.sw-tag-chip[data-fw]')) {
                 chip.addEventListener('click', () => { swForWhoFilter = chip.dataset.fw || null; swRender(); });
@@ -558,6 +562,7 @@
             for (const chip of forWhoWrap.querySelectorAll('.sw-tag-chip[data-gender]')) {
                 chip.addEventListener('click', () => { swGenderFilter = chip.dataset.gender || null; swRender(); });
             }
+            forWhoWrap.querySelector('[data-fav-filter]')?.addEventListener('click', () => { swFavFilter = !swFavFilter; swRender(); });
         }
 
         // ── Filter items by category + tag + forWho + gender + hidden ──
@@ -570,6 +575,7 @@
             if (swForWhoFilter && o.forWho && o.forWho !== 'all' && o.forWho !== swForWhoFilter) return false;
             if (swGenderFilter && (o.gender || 'unisex') !== swGenderFilter) return false;
             if (!showHidden && o.hidden) return false;
+            if (swFavFilter && !o.favourite) return false;
             return true;
         });
 
@@ -595,12 +601,16 @@
             if (fav) classes.push('sw-outfit-favourite');
             if (hid) classes.push('sw-outfit-hidden');
             h += `<div class="${classes.join(' ')}" data-id="${o.id}">
-                <div class="sw-outfit-img-wrap"><img src="${swGetOutfitSrc(o)}" alt="${esc(o.name)}" class="sw-outfit-img" loading="lazy">${a ? '<div class="sw-active-badge"><i class="fa-solid fa-check"></i></div>' : ''}${fav ? '<div class="sw-fav-badge"><i class="fa-solid fa-star"></i></div>' : ''}${hid ? '<div class="sw-hidden-badge"><i class="fa-solid fa-eye-slash"></i></div>' : ''}<div style="position:absolute;top:4px;left:4px;font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.5);color:${GENDER_COLORS[o.gender || 'unisex']};">${GENDERS[o.gender || 'unisex']}</div></div>
+                <div class="sw-outfit-img-wrap">
+                    <img src="${swGetOutfitSrc(o)}" alt="${esc(o.name)}" class="sw-outfit-img" loading="lazy">
+                    ${a ? '<div class="sw-active-badge"><i class="fa-solid fa-check"></i></div>' : ''}
+                    <button class="sw-corner-btn sw-corner-fav ${fav ? 'sw-corner-active' : ''}" data-act="fav" title="${fav ? 'Убрать из избранного' : 'В избранное'}"><i class="fa-${fav ? 'solid' : 'regular'} fa-star"></i></button>
+                    <button class="sw-corner-btn sw-corner-hide ${hid ? 'sw-corner-active' : ''}" data-act="hide" title="${hid ? 'Показать' : 'Скрыть'}"><i class="fa-solid fa-eye${hid ? '-slash' : ''}"></i></button>
+                    <div style="position:absolute;top:4px;left:4px;font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.5);color:${GENDER_COLORS[o.gender || 'unisex']};">${GENDERS[o.gender || 'unisex']}</div>
+                </div>
                 <div class="sw-outfit-footer"><span class="sw-outfit-name" title="${esc(o.description || o.name)}">${esc(o.name)}</span>
                     <div class="sw-outfit-btns">
                         <div class="sw-btn-activate" title="${a ? 'Снять' : 'Надеть'}"><i class="fa-solid ${a ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></div>
-                        <div class="sw-btn-fav ${fav ? 'sw-btn-fav-active' : ''}" title="${fav ? 'Убрать из избранного' : 'В избранное'}"><i class="fa-${fav ? 'solid' : 'regular'} fa-star"></i></div>
-                        <div class="sw-btn-hide ${hid ? 'sw-btn-hide-active' : ''}" title="${hid ? 'Показать' : 'Скрыть'}"><i class="fa-solid fa-eye${hid ? '-slash' : ''}"></i></div>
                         <div class="sw-btn-edit" title="Редактировать"><i class="fa-solid fa-pen"></i></div>
                         <div class="sw-btn-regen" title="Перегенерировать описание"><i class="fa-solid fa-robot"></i></div>
                         <div class="sw-btn-delete" title="Удалить"><i class="fa-solid fa-trash-can"></i></div>
@@ -622,8 +632,8 @@
             const id = card.dataset.id;
             card.querySelector('.sw-outfit-img')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggle(id); });
             card.querySelector('.sw-btn-activate')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggle(id); });
-            card.querySelector('.sw-btn-fav')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggleFavourite(id); swRender(); });
-            card.querySelector('.sw-btn-hide')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggleHidden(id); swRender(); });
+            card.querySelector('.sw-corner-fav')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggleFavourite(id); swRender(); });
+            card.querySelector('.sw-corner-hide')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggleHidden(id); swRender(); });
             card.querySelector('.sw-btn-edit')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swEdit(id); });
             card.querySelector('.sw-btn-regen')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swRegenDescription(id); });
             card.querySelector('.sw-btn-delete')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); if (confirm('Удалить?')) { swRemoveItem(id); swRender(); toastr.info('Удалён', 'Гардероб'); } });

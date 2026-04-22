@@ -912,32 +912,6 @@
     opacity: 0.7;
     filter: grayscale(0.15);
 }
-.sw-fav-badge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    font-size: 12px;
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.55);
-    color: #fbbf24;
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: none;
-    z-index: 2;
-}
-.sw-hidden-badge {
-    position: absolute;
-    top: 4px;
-    right: 28px;
-    font-size: 11px;
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.55);
-    color: #94a3b8;
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: none;
-    z-index: 2;
-}
 .sw-header-toggle {
     display: inline-flex;
     align-items: center;
@@ -959,17 +933,56 @@
     color: #cbd5e1;
     border-color: rgba(148, 163, 184, 0.4);
 }
-.sw-btn-fav, .sw-btn-hide {
+
+/* Corner buttons overlaid on the outfit image (fav + hide) */
+.sw-outfit-img-wrap { position: relative; }
+.sw-corner-btn {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     cursor: pointer;
-    padding: 4px;
-    border-radius: 6px;
-    transition: background .15s, color .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 12px;
+    padding: 0;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .18s, background .15s, color .15s, transform .12s;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 3;
 }
-.sw-btn-fav:hover { background: rgba(251, 191, 36, 0.18); color: #fbbf24; }
-.sw-btn-fav.sw-btn-fav-active { color: #fbbf24; }
-.sw-btn-hide:hover { background: rgba(148, 163, 184, 0.18); color: #cbd5e1; }
-.sw-btn-hide.sw-btn-hide-active { color: #94a3b8; }
+.sw-corner-fav { top: 4px; right: 4px; }
+.sw-corner-hide { bottom: 4px; right: 4px; }
+/* Visible on hover + always visible when active */
+.sw-outfit-card:hover .sw-corner-btn,
+.sw-corner-btn.sw-corner-active {
+    opacity: 1;
+}
+.sw-corner-fav:hover { background: rgba(251, 191, 36, 0.85); color: #fff; transform: scale(1.1); }
+.sw-corner-fav.sw-corner-active { color: #fbbf24; background: rgba(0, 0, 0, 0.7); }
+.sw-corner-fav.sw-corner-active:hover { background: rgba(251, 191, 36, 0.25); }
+.sw-corner-hide:hover { background: rgba(148, 163, 184, 0.85); color: #fff; transform: scale(1.1); }
+.sw-corner-hide.sw-corner-active { color: #94a3b8; background: rgba(0, 0, 0, 0.7); }
+.sw-corner-hide.sw-corner-active:hover { background: rgba(148, 163, 184, 0.25); }
+
+/* Touch devices — faintly visible so tap is discoverable */
+@media (hover: none) {
+    .sw-corner-btn { opacity: 0.55; }
+    .sw-corner-btn.sw-corner-active { opacity: 1; }
+}
+
+/* Fav filter chip in filter row */
+.sw-fav-filter-chip { display: inline-flex; align-items: center; justify-content: center; padding: 3px 10px; }
+.sw-fav-filter-chip.sw-tag-chip-active {
+    background: rgba(251, 191, 36, 0.2);
+    border-color: rgba(251, 191, 36, 0.4);
+}
 @keyframes sw-modal-in {
     from { transform: scale(0.9) translateY(16px); opacity: 0; }
     to   { transform: scale(1) translateY(0); opacity: 1; }

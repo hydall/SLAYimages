@@ -2062,8 +2062,8 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
     const userInPrompt = userNameWords.length > 0 && userNameWords.some(w => lowerPrompt.includes(w.toLowerCase()));
     iigLog('INFO', `Prompt mentions: char "${charDisplayName}"=${charInPrompt}, user "${userDisplayName}"=${userInPrompt}`);
 
-    // ── Gemini/nano-banana: base64 refs with labels ──
-    if (settings.apiType === 'gemini' || isGeminiModel(settings.model)) {
+    // ── Multimodal refs (base64 + labels) for Gemini AND OpenAI-compatible chat.completions ──
+    if (settings.apiType !== 'naistera') {
 
         const getB64 = async (ref) => {
             if (ref?.imagePath) { const b64 = await loadRefImageAsBase64(ref.imagePath); if (b64) return b64; }
@@ -2184,13 +2184,7 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
         }
     }
 
-    // ── OpenAI: wardrobe + NPC refs ──
-    if (settings.apiType !== 'gemini' && !isGeminiModel(settings.model) && settings.apiType !== 'naistera') {
-        if (window.slayWardrobe?.isReady()) {
-            if (swS.sendOutfitImageBot !== false) { const botB64 = await window.slayWardrobe.getActiveOutfitBase64('bot'); if (botB64) referenceImages.push(botB64); }
-            if (swS.sendOutfitImageUser !== false) { const userB64 = await window.slayWardrobe.getActiveOutfitBase64('user'); if (userB64) referenceImages.push(userB64); }
-        }
-    }
+    // (OpenAI refs now collected in the unified multimodal block above)
 
     // Trim
     if (referenceImages.length > MAX_GENERATION_REFERENCE_IMAGES) { referenceImages.length = MAX_GENERATION_REFERENCE_IMAGES; refLabels.length = MAX_GENERATION_REFERENCE_IMAGES; }
@@ -2227,7 +2221,7 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
             } else if (settings.apiType === 'gemini' || isGeminiModel(settings.model)) {
                 generated = await generateImageGemini(prompt, style, referenceImages, { ...options, refLabels, refNames });
             } else {
-                generated = await generateImageOpenAI(prompt, style, referenceImages, options);
+                generated = await generateImageOpenAI(prompt, style, referenceImages, { ...options, refLabels, refNames });
             }
 
             if (isGeneratedVideoResult(generated)) {
@@ -2709,7 +2703,7 @@ function createSettingsUI() {
                 </div>
 
                 <!-- NPC refs -->
-                <div id="slay_refs_section" class="iig-refs ${settings.apiType === 'openai' ? 'iig-hidden' : ''}">
+                <div id="slay_refs_section" class="iig-refs">
                     <h4><i class="fa-solid fa-user-group"></i> Референсы персонажей</h4>
                     <p class="hint">Загрузите фото для консистентной генерации. Макс 5 на запрос. Char и User отправляются всегда; NPC — если имя в промпте.</p>
                     <div class="iig-refs-grid">
@@ -2756,7 +2750,7 @@ function createSettingsUI() {
                 </div>
 
                 <!-- Image context -->
-                <div id="slay_image_context_section" class="iig-section ${(settings.apiType === 'gemini' || settings.apiType === 'naistera') ? '' : 'iig-hidden'}">
+                <div id="slay_image_context_section" class="iig-section">
                     <h4><i class="fa-solid fa-layer-group"></i> Контекст изображений</h4>
                     <label class="checkbox_label"><input type="checkbox" id="slay_image_context_enabled" ${settings.imageContextEnabled ? 'checked' : ''}><span>Отправлять предыдущие картинки как reference</span></label>
                     <div class="flex-row ${settings.imageContextEnabled ? '' : 'iig-hidden'}" id="slay_image_context_count_row"><label>Кол-во (макс ${MAX_CONTEXT_IMAGES})</label><input type="number" id="slay_image_context_count" class="text_pole flex1" value="${settings.imageContextCount}" min="1" max="${MAX_CONTEXT_IMAGES}"></div>
@@ -2860,9 +2854,9 @@ function bindSettingsEvents() {
         document.getElementById('slay_naistera_preset_row')?.classList.toggle('iig-hidden', !isNaistera);
         document.getElementById('slay_naistera_hint')?.classList.toggle('iig-hidden', !isNaistera);
         document.getElementById('slay_gemini_params')?.classList.toggle('iig-hidden', !isGemini);
-        document.getElementById('slay_refs_section')?.classList.toggle('iig-hidden', isOpenAI);
-        document.getElementById('slay_image_context_section')?.classList.toggle('iig-hidden', !(isNaistera || isGemini));
-        document.getElementById('slay_image_context_count_row')?.classList.toggle('iig-hidden', !((isNaistera || isGemini) && settings.imageContextEnabled));
+        document.getElementById('slay_refs_section')?.classList.toggle('iig-hidden', false);
+        document.getElementById('slay_image_context_section')?.classList.toggle('iig-hidden', false);
+        document.getElementById('slay_image_context_count_row')?.classList.toggle('iig-hidden', !settings.imageContextEnabled);
         // Avatar ref sections removed
         document.getElementById('slay_naistera_video_section')?.classList.toggle('iig-hidden', !isNaistera);
         document.getElementById('slay_naistera_video_frequency_row')?.classList.toggle('iig-hidden', !(isNaistera && settings.naisteraVideoTest));

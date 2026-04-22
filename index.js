@@ -2672,16 +2672,25 @@ function createLoadingPlaceholder(tagId) {
     const placeholder = document.createElement('div');
     placeholder.className = 'iig-loading-placeholder';
     placeholder.dataset.tagId = tagId;
-    placeholder.innerHTML = `<div class="iig-spinner-wrap"><div class="iig-spinner"></div></div><div class="iig-status">Генерация картинки...</div><div class="iig-timer"></div>`;
-    const timerEl = placeholder.querySelector('.iig-timer');
+    // Timer sits inside the status line as a separate span so that a) it can never be hidden
+    // behind the status text, and b) status updates (e.g. "Сохранение...") naturally replace it
+    // without leaving orphan timer DOM.
+    placeholder.innerHTML = `
+        <div class="iig-spinner-wrap"><div class="iig-spinner"></div></div>
+        <div class="iig-status"><span class="iig-status-label">Генерация картинки...</span> <span class="iig-status-timer"></span></div>
+    `;
+    const timerEl = placeholder.querySelector('.iig-status-timer');
     const startTime = Date.now();
     const tSec = FETCH_TIMEOUT / 1000;
     placeholder._timerInterval = setInterval(() => {
+        if (!timerEl.isConnected) { clearInterval(placeholder._timerInterval); return; }
         const el = Math.floor((Date.now() - startTime) / 1000);
-        if (el >= tSec) { timerEl.textContent = "Timeout..."; clearInterval(placeholder._timerInterval); return; }
+        if (el >= tSec) { timerEl.textContent = "(Timeout)"; clearInterval(placeholder._timerInterval); return; }
         const m = Math.floor(el/60), s = el%60;
-        timerEl.textContent = `${m}:${String(s).padStart(2,"0")} / ${Math.floor(tSec/60)}:00${IS_IOS ? " (iOS)" : ""}`;
+        timerEl.textContent = `(${m}:${String(s).padStart(2,"0")} / ${Math.floor(tSec/60)}:00${IS_IOS ? ", iOS" : ""})`;
     }, 1000);
+    // Seed with initial value so the user sees the timer immediately (before first tick)
+    timerEl.textContent = `(0:00 / ${Math.floor(tSec/60)}:00${IS_IOS ? ", iOS" : ""})`;
     return placeholder;
 }
 

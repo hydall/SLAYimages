@@ -58,7 +58,24 @@
         sendOutfitImageUser: true,
         experimentalCollage: false,
         skipDescriptionWarning: false,
+        // v4.1 UX additions
+        modalWidth: 'normal',   // compact | normal | wide | xwide | full
+        showHidden: false,      // toggle to show hidden items in grid
     });
+
+    // Map preset -> pixel width (used as CSS var --sw-modal-width)
+    const MODAL_WIDTH_MAP = Object.freeze({
+        compact: '480px',
+        normal:  '560px',
+        wide:    '800px',
+        xwide:   '1100px',
+        full:    '96vw',
+    });
+    function swApplyModalWidth() {
+        const s = swGetSettings();
+        const val = MODAL_WIDTH_MAP[s.modalWidth] || MODAL_WIDTH_MAP.normal;
+        document.documentElement.style.setProperty('--sw-modal-width', val);
+    }
 
     function swGetSettings() {
         const ctx = SillyTavern.getContext();
@@ -123,6 +140,16 @@
     // ── Item accessors (global) ──
     function swFindItem(id) { return swGetSettings().items.find(o => o.id === id) || null; }
     function swAddItem(item) { swGetSettings().items.push(item); swSave(); }
+    function swToggleHidden(id) {
+        const o = swFindItem(id); if (!o) return;
+        o.hidden = !o.hidden;
+        swSave();
+    }
+    function swToggleFavourite(id) {
+        const o = swFindItem(id); if (!o) return;
+        o.favourite = !o.favourite;
+        swSave();
+    }
     function swRemoveItem(id) {
         const s = swGetSettings();
         s.items = s.items.filter(o => o.id !== id);
@@ -377,6 +404,7 @@
     function swOpenModal() {
         swCloseModal();
         swInjectV4Styles();
+        swApplyModalWidth();
         swOpen = true;
         const cn = swCharName();
         if (!cn) { toastr.warning('Выберите персонажа', 'Гардероб'); swOpen = false; return; }
@@ -385,10 +413,16 @@
         ov.addEventListener('click', (e) => { if (e.target === ov) swCloseModal(); });
 
         const co = swGetCharOutfit();
+        const s = swGetSettings();
+        const hiddenCount = (s.items || []).filter(o => o.hidden).length;
         const m = document.createElement('div'); m.id = 'sw-modal';
         m.innerHTML = `
             <div class="sw-modal-header">
-                <span>\uD83D\uDC85 Гардероб — <b>${esc(cn)}</b></span>
+                <span>\uD83D\uDC85 Гардероб — <b>${esc(cn)}</b>
+                    <label class="sw-header-toggle ${s.showHidden ? 'sw-header-toggle-active' : ''}" id="sw-show-hidden-toggle" title="Показать скрытые">
+                        <i class="fa-solid fa-eye${s.showHidden ? '' : '-slash'}"></i> Скрытые: ${hiddenCount}
+                    </label>
+                </span>
                 <div class="sw-modal-close" title="Закрыть"><i class="fa-solid fa-xmark"></i></div>
             </div>
             <div class="sw-tabs" id="sw-type-tabs">
@@ -404,6 +438,17 @@
 
         ov.appendChild(m); document.body.appendChild(ov);
         m.querySelector('.sw-modal-close').addEventListener('click', swCloseModal);
+        m.querySelector('#sw-show-hidden-toggle')?.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            const st = swGetSettings();
+            st.showHidden = !st.showHidden;
+            swSave();
+            // Re-render: update toggle visual + re-filter grid
+            const toggle = e.currentTarget;
+            toggle.classList.toggle('sw-header-toggle-active', st.showHidden);
+            toggle.querySelector('i').className = `fa-solid fa-eye${st.showHidden ? '' : '-slash'}`;
+            swRender();
+        });
         for (const t of m.querySelectorAll('#sw-type-tabs .sw-tab')) t.addEventListener('click', () => {
             swTab = t.dataset.tab;
             swForWhoFilter = swTab; // Auto-filter: Бот tab → show bot items, Юзер tab → show user items
@@ -515,27 +560,47 @@
             }
         }
 
-        // ── Filter items by category + tag + forWho + gender ──
-        const allItems = swGetSettings().items;
+        // ── Filter items by category + tag + forWho + gender + hidden ──
+        const settings = swGetSettings();
+        const allItems = settings.items;
+        const showHidden = !!settings.showHidden;
         const filtered = allItems.filter(o => {
             if (o.category !== swCatTab) return false;
             if (swTagFilter && (!Array.isArray(o.tags) || !o.tags.includes(swTagFilter))) return false;
             if (swForWhoFilter && o.forWho && o.forWho !== 'all' && o.forWho !== swForWhoFilter) return false;
             if (swGenderFilter && (o.gender || 'unisex') !== swGenderFilter) return false;
+            if (!showHidden && o.hidden) return false;
             return true;
         });
 
         const equippedId = co[swTab]?.[swCatTab] || null;
 
+        // ── Sort: equipped first → favourites → normal → hidden last ──
+        filtered.sort((a, b) => {
+            const aRank = (a.id === equippedId) ? 0 : (a.favourite ? 1 : (a.hidden ? 3 : 2));
+            const bRank = (b.id === equippedId) ? 0 : (b.favourite ? 1 : (b.hidden ? 3 : 2));
+            if (aRank !== bRank) return aRank - bRank;
+            // Within same rank: newest first (by addedAt desc)
+            return (b.addedAt || 0) - (a.addedAt || 0);
+        });
+
         // ── Grid ──
         let h = '<div class="sw-outfit-grid"><div class="sw-outfit-card sw-upload-card" id="sw-upload-trigger"><div class="sw-upload-icon"><i class="fa-solid fa-plus"></i></div><span>Загрузить</span></div>';
         for (const o of filtered) {
             const a = o.id === equippedId;
-            h += `<div class="sw-outfit-card ${a ? 'sw-outfit-active' : ''}" data-id="${o.id}">
-                <div class="sw-outfit-img-wrap"><img src="${swGetOutfitSrc(o)}" alt="${esc(o.name)}" class="sw-outfit-img" loading="lazy">${a ? '<div class="sw-active-badge"><i class="fa-solid fa-check"></i></div>' : ''}<div style="position:absolute;top:4px;left:4px;font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.5);color:${GENDER_COLORS[o.gender || 'unisex']};">${GENDERS[o.gender || 'unisex']}</div></div>
+            const fav = !!o.favourite;
+            const hid = !!o.hidden;
+            const classes = ['sw-outfit-card'];
+            if (a) classes.push('sw-outfit-active');
+            if (fav) classes.push('sw-outfit-favourite');
+            if (hid) classes.push('sw-outfit-hidden');
+            h += `<div class="${classes.join(' ')}" data-id="${o.id}">
+                <div class="sw-outfit-img-wrap"><img src="${swGetOutfitSrc(o)}" alt="${esc(o.name)}" class="sw-outfit-img" loading="lazy">${a ? '<div class="sw-active-badge"><i class="fa-solid fa-check"></i></div>' : ''}${fav ? '<div class="sw-fav-badge"><i class="fa-solid fa-star"></i></div>' : ''}${hid ? '<div class="sw-hidden-badge"><i class="fa-solid fa-eye-slash"></i></div>' : ''}<div style="position:absolute;top:4px;left:4px;font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.5);color:${GENDER_COLORS[o.gender || 'unisex']};">${GENDERS[o.gender || 'unisex']}</div></div>
                 <div class="sw-outfit-footer"><span class="sw-outfit-name" title="${esc(o.description || o.name)}">${esc(o.name)}</span>
                     <div class="sw-outfit-btns">
                         <div class="sw-btn-activate" title="${a ? 'Снять' : 'Надеть'}"><i class="fa-solid ${a ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></div>
+                        <div class="sw-btn-fav ${fav ? 'sw-btn-fav-active' : ''}" title="${fav ? 'Убрать из избранного' : 'В избранное'}"><i class="fa-${fav ? 'solid' : 'regular'} fa-star"></i></div>
+                        <div class="sw-btn-hide ${hid ? 'sw-btn-hide-active' : ''}" title="${hid ? 'Показать' : 'Скрыть'}"><i class="fa-solid fa-eye${hid ? '-slash' : ''}"></i></div>
                         <div class="sw-btn-edit" title="Редактировать"><i class="fa-solid fa-pen"></i></div>
                         <div class="sw-btn-regen" title="Перегенерировать описание"><i class="fa-solid fa-robot"></i></div>
                         <div class="sw-btn-delete" title="Удалить"><i class="fa-solid fa-trash-can"></i></div>
@@ -544,11 +609,21 @@
         h += '</div>';
         content.innerHTML = h;
 
+        // Update header hidden count
+        const hdrToggle = document.getElementById('sw-show-hidden-toggle');
+        if (hdrToggle) {
+            const hiddenCount = allItems.filter(o => o.hidden).length;
+            const labelText = hdrToggle.childNodes[hdrToggle.childNodes.length - 1];
+            if (labelText && labelText.nodeType === 3) labelText.textContent = ` Скрытые: ${hiddenCount}`;
+        }
+
         document.getElementById('sw-upload-trigger')?.addEventListener('click', swUpload);
         for (const card of content.querySelectorAll('.sw-outfit-card[data-id]')) {
             const id = card.dataset.id;
             card.querySelector('.sw-outfit-img')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggle(id); });
             card.querySelector('.sw-btn-activate')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggle(id); });
+            card.querySelector('.sw-btn-fav')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggleFavourite(id); swRender(); });
+            card.querySelector('.sw-btn-hide')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swToggleHidden(id); swRender(); });
             card.querySelector('.sw-btn-edit')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swEdit(id); });
             card.querySelector('.sw-btn-regen')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); swRegenDescription(id); });
             card.querySelector('.sw-btn-delete')?.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); if (confirm('Удалить?')) { swRemoveItem(id); swRender(); toastr.info('Удалён', 'Гардероб'); } });
@@ -1122,11 +1197,13 @@
         },
         openModal: () => swOpenModal(),
         isReady: () => true,
+        applyModalWidth: () => swApplyModalWidth(),
     };
 
     // ── Init hooks ──
     const ctx = SillyTavern.getContext();
     ctx.eventSource.on(ctx.event_types.APP_READY, () => {
+        swApplyModalWidth();
         setTimeout(() => { swUpdatePromptInjection(); swInjectFloatingBtn(); }, 500);
     });
     ctx.eventSource.on(ctx.event_types.CHAT_CHANGED, () => {
@@ -2889,6 +2966,14 @@ function createSettingsUI() {
                     <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="slay_sw_skip_desc_warn" ${swSettings.skipDescriptionWarning ? 'checked' : ''}><span>Не спрашивать про описание при надевании</span></label>
                     <label class="checkbox_label" style="margin-top:4px;"><input type="checkbox" id="slay_sw_show_float" ${swSettings.showFloatingBtn ? 'checked' : ''}><span>Плавающая кнопка в чате</span></label>
                     <div class="flex-row" style="margin-top:6px;"><label>Макс. размер (px)</label><input type="number" id="slay_sw_max_dim" class="text_pole flex1" value="${swSettings.maxDimension || 512}" min="128" max="1024" step="64"></div>
+                    <div class="flex-row" style="margin-top:6px;"><label>Размер гардероба (ПК)</label><select id="slay_sw_modal_width" class="flex1">
+                        <option value="compact" ${swSettings.modalWidth === 'compact' ? 'selected' : ''}>Компактный (480px)</option>
+                        <option value="normal" ${(swSettings.modalWidth || 'normal') === 'normal' ? 'selected' : ''}>Обычный (560px)</option>
+                        <option value="wide" ${swSettings.modalWidth === 'wide' ? 'selected' : ''}>Широкий (800px)</option>
+                        <option value="xwide" ${swSettings.modalWidth === 'xwide' ? 'selected' : ''}>Очень широкий (1100px)</option>
+                        <option value="full" ${swSettings.modalWidth === 'full' ? 'selected' : ''}>Во весь экран</option>
+                    </select></div>
+                    <p class="hint" style="margin-top:4px;font-size:0.75em;">На мобильных устройствах всегда полноэкранный режим.</p>
                 </div>
 
                 <!-- Image context -->
@@ -3197,6 +3282,17 @@ function bindSettingsEvents() {
         const ctx = SillyTavern.getContext();
         if (ctx.extensionSettings.slay_wardrobe) { ctx.extensionSettings.slay_wardrobe.maxDimension = Math.max(128, Math.min(1024, parseInt(e.target.value) || 512)); ctx.saveSettingsDebounced(); }
     });
+    document.getElementById('slay_sw_modal_width')?.addEventListener('change', (e) => {
+        const ctx = SillyTavern.getContext();
+        const valid = ['compact', 'normal', 'wide', 'xwide', 'full'];
+        const val = valid.includes(e.target.value) ? e.target.value : 'normal';
+        if (ctx.extensionSettings.slay_wardrobe) {
+            ctx.extensionSettings.slay_wardrobe.modalWidth = val;
+            ctx.saveSettingsDebounced();
+        }
+        // Apply immediately so juser sees the change if wardrobe is open
+        window.slayWardrobe?.applyModalWidth?.();
+    });
 
     updateVisibility();
 }
@@ -3270,6 +3366,20 @@ function updateHeaderStatusDot() {
         initMobileSaveListeners();
         // Attach regen buttons to pre-existing generated images in chat
         setTimeout(() => attachRegenButtonsInRoot(document.getElementById('chat') || document.body), 400);
+        // MutationObserver — catches re-renders that skip CHARACTER_MESSAGE_RENDERED
+        // (swipes, edits, MESSAGE_UPDATED, etc.)
+        const chatEl = document.getElementById('chat');
+        if (chatEl && !chatEl.dataset.iigRegenObserverBound) {
+            const obs = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    for (const node of m.addedNodes) {
+                        if (node.nodeType === 1) attachRegenButtonsInRoot(node);
+                    }
+                }
+            });
+            obs.observe(chatEl, { childList: true, subtree: true });
+            chatEl.dataset.iigRegenObserverBound = '1';
+        }
         iigLog('INFO', 'Slay Images extension loaded');
     });
 

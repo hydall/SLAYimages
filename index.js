@@ -3201,7 +3201,7 @@ async function openStylePickerModal() {
           <div class="slay-style-modal-close menu_button"><i class="fa-solid fa-xmark"></i></div>
         </div>
         <div class="slay-style-filters"></div>
-        <div class="slay-style-grid"><div class="slay-style-loading">Загрузка стилей…</div></div>
+        <div class="slay-style-body"><div class="slay-style-loading">Загрузка стилей…</div></div>
       </div>`;
     document.body.appendChild(overlay);
 
@@ -3218,11 +3218,19 @@ async function openStylePickerModal() {
         for (const card of doc.querySelectorAll('article.style-card')) {
             const name = card.querySelector('h2.card-title')?.textContent.trim() || '';
             const tags = (card.dataset.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+            const descEl = card.querySelector('p.card-desc');
+            const desc = (descEl?.getAttribute('data-ru') || descEl?.textContent || '').trim();
             const imgRel = card.querySelector('.carousel-track img')?.getAttribute('src') || '';
             const imgSrc = imgRel ? (new URL(imgRel, BASE)).href : '';
+            const stableBadge = card.querySelector('.badge-green');
+            const expBadge = card.querySelector('.badge-yellow');
+            const stability = stableBadge ? 'stable' : (expBadge ? 'exp' : '');
+            const stabilityText = stableBadge
+                ? (stableBadge.getAttribute('data-ru') || stableBadge.textContent).trim()
+                : expBadge ? (expBadge.getAttribute('data-ru') || expBadge.textContent).trim() : '';
             const promptRaw = card.querySelector('.prompt-panel[data-panel="direct"] .prompt-code')?.textContent.trim() || '';
             const prompt = promptRaw.replace(/^\[Describe your scene here\]\.\s*/i, '').trim();
-            if (name && prompt) result.push({ name, tags, imgSrc, prompt });
+            if (name && prompt) result.push({ name, tags, desc, imgSrc, stability, stabilityText, prompt });
         }
         return result;
     };
@@ -3242,7 +3250,7 @@ async function openStylePickerModal() {
             }
         } catch(e) {}
         if (!styles.length) {
-            overlay.querySelector('.slay-style-grid').innerHTML = `<p style="padding:16px;opacity:.6;">Ошибка загрузки: ${fetchErr.message}</p>`;
+            overlay.querySelector('.slay-style-body').innerHTML = `<p style="padding:16px;opacity:.6;">Ошибка загрузки: ${fetchErr.message}</p>`;
             return;
         }
     }
@@ -3252,7 +3260,7 @@ async function openStylePickerModal() {
     let activeTag = '';
 
     const filtersEl = overlay.querySelector('.slay-style-filters');
-    const gridEl = overlay.querySelector('.slay-style-grid');
+    const bodyEl = overlay.querySelector('.slay-style-body');
 
     const renderFilters = () => {
         filtersEl.innerHTML = ['', ...allTags].map(t =>
@@ -3265,25 +3273,46 @@ async function openStylePickerModal() {
 
     const settings = getSettings();
 
+    const makeCard = (s, isSel, isNoReplace) => {
+        const encodedPrompt = s ? encodeURIComponent(s.prompt) : '';
+        const encodedName = s ? encodeURIComponent(s.name) : '';
+        if (isNoReplace) {
+            return `<article class="slay-sc${isSel ? ' selected' : ''}" data-style="" data-name="">
+              <div class="slay-sc-media slay-sc-no-media"><i class="fa-solid fa-ban"></i></div>
+              <div class="slay-sc-body">
+                <div class="slay-sc-head">
+                  <span class="slay-sc-name">Не заменять</span>
+                </div>
+                <p class="slay-sc-desc">Использовать стиль из оригинального промпта</p>
+              </div>
+            </article>`;
+        }
+        const badgeCls = s.stability === 'stable' ? 'slay-sc-badge-stable' : (s.stability === 'exp' ? 'slay-sc-badge-exp' : '');
+        const badgeHtml = s.stabilityText ? `<span class="slay-sc-badge ${badgeCls}">${s.stabilityText}</span>` : '';
+        const mediaHtml = s.imgSrc
+            ? `<img class="slay-sc-media" src="${s.imgSrc}" alt="" loading="lazy">`
+            : `<div class="slay-sc-media slay-sc-no-media"><i class="fa-solid fa-image"></i></div>`;
+        return `<article class="slay-sc${isSel ? ' selected' : ''}" data-style="${encodedPrompt}" data-name="${encodedName}">
+          ${mediaHtml}
+          <div class="slay-sc-body">
+            <div class="slay-sc-head">
+              <span class="slay-sc-name">${s.name}</span>
+              ${badgeHtml}
+            </div>
+            ${s.desc ? `<p class="slay-sc-desc">${s.desc}</p>` : ''}
+          </div>
+        </article>`;
+    };
+
     const renderGrid = () => {
         const visible = activeTag ? styles.filter(s => s.tags.includes(activeTag)) : styles;
         const noReplaceActive = !settings.slayStyle;
-        gridEl.innerHTML = `
-          <div class="slay-style-card${noReplaceActive ? ' selected' : ''}" data-style="" data-name="">
-            <div class="slay-style-card-img slay-style-no-img"><i class="fa-solid fa-ban"></i></div>
-            <span class="slay-style-card-name">Не заменять</span>
-          </div>
-          ${visible.map(s => {
-              const isSel = settings.slayStyle === s.prompt;
-              const encodedPrompt = encodeURIComponent(s.prompt);
-              const encodedName = encodeURIComponent(s.name);
-              return `<div class="slay-style-card${isSel ? ' selected' : ''}" data-style="${encodedPrompt}" data-name="${encodedName}">
-                ${s.imgSrc ? `<img class="slay-style-card-img" src="${s.imgSrc}" alt="" loading="lazy">` : '<div class="slay-style-card-img slay-style-no-img"><i class="fa-solid fa-image"></i></div>'}
-                <span class="slay-style-card-name">${s.name}</span>
-              </div>`;
-          }).join('')}`;
+        bodyEl.innerHTML = `<div class="slay-style-grid">
+          ${makeCard(null, noReplaceActive, true)}
+          ${visible.map(s => makeCard(s, settings.slayStyle === s.prompt, false)).join('')}
+        </div>`;
 
-        for (const card of gridEl.querySelectorAll('.slay-style-card')) {
+        for (const card of bodyEl.querySelectorAll('.slay-sc')) {
             card.addEventListener('click', () => {
                 const prompt = card.dataset.style ? decodeURIComponent(card.dataset.style) : '';
                 const name = card.dataset.name ? decodeURIComponent(card.dataset.name) : '';

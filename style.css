@@ -1447,15 +1447,14 @@
 .slay-sc-badge-stable { background: rgba(125,211,160,0.15); color: #7dd3a0; border: 1px solid rgba(125,211,160,0.3); }
 .slay-sc-badge-exp    { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
 .slay-sc-desc {
-    font-size: 0.75em; line-height: 1.45; opacity: .62;
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    font-size: 0.75em; line-height: 1.5; opacity: .65;
     color: var(--SmartThemeFontColor,#ccc);
 }
-/* ── Mobile: list layout ── */
+/* ── Mobile ── */
 @media (max-width: 640px) {
+    .slay-style-overlay { align-items: flex-start; }
+    .slay-style-modal { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
     .slay-style-grid { grid-template-columns: 1fr; gap: 8px; }
-    .slay-sc { flex-direction: row; border-left-width: 3px; border-radius: 10px; }
-    .slay-sc-media, .slay-sc-no-media { width: 88px; flex-shrink: 0; aspect-ratio: 1/1; }
-    .slay-sc-body { padding: 8px 10px; justify-content: center; }
-    .slay-sc-desc { -webkit-line-clamp: 2; }
+    .slay-sc { flex-direction: column; }
+    .slay-sc-media, .slay-sc-no-media { width: 100%; aspect-ratio: 16/9; }
 }

@@ -2425,8 +2425,8 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
             return ref?.imageBase64 || ref?.imageData || null;
         };
 
-        // 1. Character face + outfit (only if mentioned in prompt)
-        if (charInPrompt) {
+        // 1. Character face + outfit (always send if available)
+        {
             if (settings.sendCharAvatar) {
                 const charAvatar = await getCharacterAvatarBase64();
                 if (charAvatar) { referenceImages.push(charAvatar); refLabels.push('char_face'); refNames.push(charDisplayName); }
@@ -2446,8 +2446,8 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
             }
         }
 
-        // 2. User face + outfit (only if mentioned in prompt)
-        if (userInPrompt) {
+        // 2. User face + outfit (always send if available)
+        {
             if (settings.sendUserAvatar) {
                 const userAvatar = await getUserAvatarBase64();
                 if (userAvatar) { referenceImages.push(userAvatar); refLabels.push('user_face'); refNames.push(userDisplayName); }
@@ -2492,8 +2492,8 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
         };
         const canPush = () => referenceDataUrls.length < MAX_GENERATION_REFERENCE_IMAGES;
         const pushRef = (url, label) => { referenceDataUrls.push(url); naisteraRefLabels.push(label); };
-        // 1. User face (ONLY if mentioned in prompt)
-        if (userInPrompt && canPush()) {
+        // 1. User face (always send if available)
+        if (canPush()) {
             if (settings.naisteraSendUserAvatar) {
                 const d = await getUserAvatarDataUrl();
                 if (d) pushRef(d, `${userDisplayName} (user)`);
@@ -2502,8 +2502,8 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
                 if (u) pushRef(u, `${userDisplayName} (user)`);
             }
         }
-        // 2. Character face (ONLY if mentioned in prompt)
-        if (charInPrompt && canPush()) {
+        // 2. Character face (always send if available)
+        if (canPush()) {
             if (settings.naisteraSendCharAvatar) {
                 const d = await getCharacterAvatarDataUrl();
                 if (d) pushRef(d, `${charDisplayName} (character)`);
@@ -2519,13 +2519,13 @@ async function generateImageWithRetry(prompt, style, onStatusUpdate, options = {
             const url = await getDataUrl(npc);
             if (url) { pushRef(url, `${npc.name} (NPC)`); iigLog('INFO', `NPC (naistera): ${npc.name}`); }
         }
-        // 4. Wardrobe user outfit (ONLY if user in prompt)
-        if (userInPrompt && canPush() && window.slayWardrobe?.isReady() && swS.sendOutfitImageUser !== false) {
+        // 4. Wardrobe user outfit (always send if available)
+        if (canPush() && window.slayWardrobe?.isReady() && swS.sendOutfitImageUser !== false) {
             const userB64 = await window.slayWardrobe.getActiveOutfitBase64('user');
             if (userB64) pushRef(`data:image/png;base64,${userB64}`, `${userDisplayName} outfit`);
         }
-        // 5. Wardrobe bot outfit (ONLY if char in prompt)
-        if (charInPrompt && canPush() && window.slayWardrobe?.isReady() && swS.sendOutfitImageBot !== false) {
+        // 5. Wardrobe bot outfit (always send if available)
+        if (canPush() && window.slayWardrobe?.isReady() && swS.sendOutfitImageBot !== false) {
             const botB64 = await window.slayWardrobe.getActiveOutfitBase64('bot');
             if (botB64) pushRef(`data:image/png;base64,${botB64}`, `${charDisplayName} outfit`);
         }

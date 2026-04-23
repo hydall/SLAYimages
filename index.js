@@ -3192,12 +3192,17 @@ function bindRefSlotEvents() {
 }
 
 async function openStylePickerModal() {
+    const BASE = 'https://wewwaistyping.github.io/slayimagespromts/';
+
     const overlay = document.createElement('div');
     overlay.className = 'slay-style-overlay';
     overlay.innerHTML = `
       <div class="slay-style-modal">
         <div class="slay-style-modal-head">
           <span class="slay-style-modal-title"><i class="fa-solid fa-palette"></i> Выбрать стиль</span>
+          <a class="slay-style-source-link" href="${BASE}" target="_blank" rel="noopener" title="Открыть на сайте">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Сайт
+          </a>
           <div class="slay-style-modal-close menu_button"><i class="fa-solid fa-xmark"></i></div>
         </div>
         <div class="slay-style-filters"></div>
@@ -3208,7 +3213,16 @@ async function openStylePickerModal() {
     overlay.querySelector('.slay-style-modal-close').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-    const BASE = 'https://wewwaistyping.github.io/slayimagespromts/';
+    // ── Lightbox ──
+    const openLightbox = (src) => {
+        const lb = document.createElement('div');
+        lb.className = 'slay-lb';
+        lb.innerHTML = `<div class="slay-lb-inner"><img src="${src}" alt=""><div class="slay-lb-close"><i class="fa-solid fa-xmark"></i></div></div>`;
+        document.body.appendChild(lb);
+        lb.addEventListener('click', e => { if (!lb.querySelector('img').contains(e.target)) lb.remove(); });
+        lb.querySelector('.slay-lb-close').addEventListener('click', () => lb.remove());
+    };
+
     const CACHE_KEY = 'slay_styles_cache';
     let styles = [];
 
@@ -3220,8 +3234,9 @@ async function openStylePickerModal() {
             const tags = (card.dataset.tags || '').split(',').map(t => t.trim()).filter(Boolean);
             const descEl = card.querySelector('p.card-desc');
             const desc = (descEl?.getAttribute('data-ru') || descEl?.textContent || '').trim();
-            const imgRel = card.querySelector('.carousel-track img')?.getAttribute('src') || '';
-            const imgSrc = imgRel ? (new URL(imgRel, BASE)).href : '';
+            const images = [...card.querySelectorAll('.carousel-track img')]
+                .map(img => { const r = img.getAttribute('src') || ''; return r ? new URL(r, BASE).href : ''; })
+                .filter(Boolean);
             const stableBadge = card.querySelector('.badge-green');
             const expBadge = card.querySelector('.badge-yellow');
             const stability = stableBadge ? 'stable' : (expBadge ? 'exp' : '');
@@ -3230,7 +3245,7 @@ async function openStylePickerModal() {
                 : expBadge ? (expBadge.getAttribute('data-ru') || expBadge.textContent).trim() : '';
             const promptRaw = card.querySelector('.prompt-panel[data-panel="direct"] .prompt-code')?.textContent.trim() || '';
             const prompt = promptRaw.replace(/^\[Describe your scene here\]\.\s*/i, '').trim();
-            if (name && prompt) result.push({ name, tags, desc, imgSrc, stability, stabilityText, prompt });
+            if (name && prompt) result.push({ name, tags, desc, images, stability, stabilityText, prompt });
         }
         return result;
     };
@@ -3244,10 +3259,7 @@ async function openStylePickerModal() {
         fetchErr = err;
         try {
             const cached = localStorage.getItem(CACHE_KEY);
-            if (cached) {
-                styles = JSON.parse(cached);
-                iigLog('WARN', `Style fetch failed, loaded ${styles.length} styles from cache`);
-            }
+            if (cached) { styles = JSON.parse(cached); iigLog('WARN', `Style fetch failed, loaded ${styles.length} styles from cache`); }
         } catch(e) {}
         if (!styles.length) {
             overlay.querySelector('.slay-style-body').innerHTML = `<p style="padding:16px;opacity:.6;">Ошибка загрузки: ${fetchErr.message}</p>`;
@@ -3273,28 +3285,45 @@ async function openStylePickerModal() {
 
     const settings = getSettings();
 
+    // Build carousel HTML for a list of image URLs
+    const makeCarousel = (images) => {
+        if (!images || !images.length) {
+            return `<div class="slay-sc-carousel slay-sc-no-media"><i class="fa-solid fa-image"></i></div>`;
+        }
+        const imgs = images.map((src, i) =>
+            `<img class="slay-sc-cimg" src="${src}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}" data-src="${src}">`
+        ).join('');
+        const dots = images.length > 1
+            ? `<div class="slay-sc-dots">${images.map((_, i) => `<span class="slay-sc-dot${i === 0 ? ' active' : ''}"></span>`).join('')}</div>`
+            : '';
+        const nav = images.length > 1
+            ? `<button class="slay-sc-prev" type="button" aria-label="Назад">&#8249;</button>
+               <button class="slay-sc-next" type="button" aria-label="Вперёд">&#8250;</button>
+               <span class="slay-sc-counter">1 / ${images.length}</span>`
+            : '';
+        return `<div class="slay-sc-carousel" data-idx="0" data-total="${images.length}">
+          <div class="slay-sc-track">${imgs}</div>
+          ${nav}${dots}
+        </div>`;
+    };
+
     const makeCard = (s, isSel, isNoReplace) => {
         const encodedPrompt = s ? encodeURIComponent(s.prompt) : '';
         const encodedName = s ? encodeURIComponent(s.name) : '';
         if (isNoReplace) {
-            return `<article class="slay-sc${isSel ? ' selected' : ''}" data-style="" data-name="">
-              <div class="slay-sc-media slay-sc-no-media"><i class="fa-solid fa-ban"></i></div>
-              <div class="slay-sc-body">
-                <div class="slay-sc-head">
-                  <span class="slay-sc-name">Не заменять</span>
-                </div>
+            return `<article class="slay-sc${isSel ? ' selected' : ''}">
+              <div class="slay-sc-carousel slay-sc-no-media"><i class="fa-solid fa-ban"></i></div>
+              <div class="slay-sc-body slay-sc-selectable" data-style="" data-name="">
+                <div class="slay-sc-head"><span class="slay-sc-name">Не заменять</span></div>
                 <p class="slay-sc-desc">Использовать стиль из оригинального промпта</p>
               </div>
             </article>`;
         }
         const badgeCls = s.stability === 'stable' ? 'slay-sc-badge-stable' : (s.stability === 'exp' ? 'slay-sc-badge-exp' : '');
         const badgeHtml = s.stabilityText ? `<span class="slay-sc-badge ${badgeCls}">${s.stabilityText}</span>` : '';
-        const mediaHtml = s.imgSrc
-            ? `<img class="slay-sc-media" src="${s.imgSrc}" alt="" loading="lazy">`
-            : `<div class="slay-sc-media slay-sc-no-media"><i class="fa-solid fa-image"></i></div>`;
-        return `<article class="slay-sc${isSel ? ' selected' : ''}" data-style="${encodedPrompt}" data-name="${encodedName}">
-          ${mediaHtml}
-          <div class="slay-sc-body">
+        return `<article class="slay-sc${isSel ? ' selected' : ''}">
+          ${makeCarousel(s.images)}
+          <div class="slay-sc-body slay-sc-selectable" data-style="${encodedPrompt}" data-name="${encodedName}">
             <div class="slay-sc-head">
               <span class="slay-sc-name">${s.name}</span>
               ${badgeHtml}
@@ -3302,6 +3331,44 @@ async function openStylePickerModal() {
             ${s.desc ? `<p class="slay-sc-desc">${s.desc}</p>` : ''}
           </div>
         </article>`;
+    };
+
+    // Attach carousel logic to all .slay-sc-carousel elements inside a container
+    const initCarousels = (container) => {
+        for (const car of container.querySelectorAll('.slay-sc-carousel[data-total]')) {
+            const total = parseInt(car.dataset.total, 10);
+            if (total <= 1) continue;
+            const track = car.querySelector('.slay-sc-track');
+            const dots = car.querySelectorAll('.slay-sc-dot');
+            const counter = car.querySelector('.slay-sc-counter');
+            let idx = 0;
+
+            const goTo = (n) => {
+                idx = (n + total) % total;
+                track.style.transform = `translateX(-${idx * 100}%)`;
+                dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+                if (counter) counter.textContent = `${idx + 1} / ${total}`;
+                car.dataset.idx = idx;
+            };
+
+            car.querySelector('.slay-sc-prev').addEventListener('click', e => { e.stopPropagation(); goTo(idx - 1); });
+            car.querySelector('.slay-sc-next').addEventListener('click', e => { e.stopPropagation(); goTo(idx + 1); });
+
+            // Touch swipe
+            let touchX = null;
+            track.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+            track.addEventListener('touchend', e => {
+                if (touchX === null) return;
+                const dx = e.changedTouches[0].clientX - touchX;
+                if (Math.abs(dx) > 40) goTo(dx < 0 ? idx + 1 : idx - 1);
+                touchX = null;
+            });
+        }
+
+        // Lightbox on image click
+        for (const img of container.querySelectorAll('.slay-sc-cimg')) {
+            img.addEventListener('click', e => { e.stopPropagation(); openLightbox(img.dataset.src || img.src); });
+        }
     };
 
     const renderGrid = () => {
@@ -3312,10 +3379,13 @@ async function openStylePickerModal() {
           ${visible.map(s => makeCard(s, settings.slayStyle === s.prompt, false)).join('')}
         </div>`;
 
-        for (const card of bodyEl.querySelectorAll('.slay-sc')) {
-            card.addEventListener('click', () => {
-                const prompt = card.dataset.style ? decodeURIComponent(card.dataset.style) : '';
-                const name = card.dataset.name ? decodeURIComponent(card.dataset.name) : '';
+        initCarousels(bodyEl);
+
+        // Select on body/description click only
+        for (const selectable of bodyEl.querySelectorAll('.slay-sc-selectable')) {
+            selectable.addEventListener('click', () => {
+                const prompt = selectable.dataset.style ? decodeURIComponent(selectable.dataset.style) : '';
+                const name = selectable.dataset.name ? decodeURIComponent(selectable.dataset.name) : '';
                 settings.slayStyle = prompt;
                 settings.slayStyleName = name || 'Не заменять';
                 saveSettings();

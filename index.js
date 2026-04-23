@@ -3236,9 +3236,25 @@ async function openStylePickerModal() {
         <div class="slay-style-body"><div class="slay-style-loading">Загрузка стилей…</div></div>
       </div>`;
     document.body.appendChild(overlay);
+    const modal = overlay.querySelector('.slay-style-modal');
+    const closeOverlay = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        overlay.remove();
+    };
 
-    overlay.querySelector('.slay-style-modal-close').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('.slay-style-modal-close').addEventListener('click', closeOverlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeOverlay(e); });
+    overlay.addEventListener('mousedown', e => {
+        if (e.target === overlay) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    });
+    modal?.addEventListener('click', e => e.stopPropagation());
+    modal?.addEventListener('mousedown', e => e.stopPropagation());
 
     // ── Lightbox ──
     const openLightbox = (src) => {
@@ -3418,7 +3434,7 @@ async function openStylePickerModal() {
                 saveSettings();
                 const nameEl = document.getElementById('slay_style_name');
                 if (nameEl) nameEl.textContent = settings.slayStyleName;
-                overlay.remove();
+                closeOverlay();
             });
         }
     };
